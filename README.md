@@ -7,8 +7,9 @@ Look ahead the next days in order to identify surplus / shortages in your energy
 Supported Services
 
 - [Solcast](https://solcast.com/)
-    - [Hobbyist Plan](https://toolkit.solcast.com.au/register/hobbyist)
+    - Free [Hobbyist Plan](https://toolkit.solcast.com.au/register/hobbyist) with registration
 - [Forecast.Solar](https://forecast.solar/)
+    - Public, Personal and Professional [plans](https://forecast.solar/#accounts) available 
 
 
 ## Supported Things
@@ -47,15 +48,17 @@ After configuration the necessary information is available.
 | refreshInterval | integer | Forecast Refresh Interval in minutes  | 120     | yes      |
 
 `resourceId` for each plane can be obtained in your [Rooftop Sites](https://toolkit.solcast.com.au/rooftop-sites)
+
 `refreshInterval` of forecast data needs to respect the throttling of the Solcast service. 
 If you've 25 free calls per day, each plane needs 2 call per update a refresh interval of 120 minutes will result in 24 call per day.
+
 Note: `channelRefreshInterval` from [Bridge Configuration](#solcast-bridge-configuration) will calculate intermediate values without requesting new forecast data.
 
 
 ## Solcast Channels
 
 Each Plane Thing reports their specific values including a `raw` channel holding json content.
-The Bridge sums up all `Plane Thing` values and provides the total forecast for your home location.  
+The Bridge sums up all attched `sc-pLane` values and provides the total forecast for your home location.  
 
 Channels are covering today's actual data with current, remaining and today's total prediction.
 Forecasts are delivered up to 6 days in advance including 
@@ -72,15 +75,16 @@ Forecasts are delivered up to 6 days in advance including
 | tomorrow-channel        | Number:Energy | Tomorrows forecast in total             |
 | tomorrow-low-channel    | Number:Energy | Tomorrows pessimistic forecast          |
 | tomorrow-high-channel   | Number:Energy | Tomorrows optimistic forecast           |
-| day`X`-channel          | Number:Energy | Day `X` forecast in total               |
-| day`X`-low-channel      | Number:Energy | Day `X` pessimistic forecast            |
-| day`X`-high-channel     | Number:Energy | Day `X` optimistic forecast             |
+| day*X*-channel          | Number:Energy | Day *X* forecast in total               |
+| day*X*-low-channel      | Number:Energy | Day *X* pessimistic forecast            |
+| day*X*-high-channel     | Number:Energy | Day *X* optimistic forecast             |
 | raw                     | String        | Plain JSON response without conversions |
 
 
 ## ForecastSolar Configuration
 
-[ForecastSolar service](https://forecast.solar/) provides a public free plan.
+[ForecastSolar service](https://forecast.solar/) provides a [public free](https://forecast.solar/#accounts) plan.
+You can try this out without any registration or other pre-conditions.
 
 ### ForecastSolar Bridge Configuration
 
@@ -92,6 +96,7 @@ Forecasts are delivered up to 6 days in advance including
 
 `location` defines latitude, longitude values of your PV system.
 In case of auto-detect the location configured in openHAB is obtained.
+
 `apiKey` can be given in case you subscribed to a paid plan
 
 
@@ -106,6 +111,7 @@ In case of auto-detect the location configured in openHAB is obtained.
 
 `refreshInterval` of forecast data needs to respect the throttling of the ForecastSolar service. 
 12 calls per hour allowed from your caller IP address so for 2 planes lowest possible refresh rate is 10 minutes.
+
 Note: `channelRefreshInterval` from [Bridge Configuration](#forecastsolar-bridge-configuration) will calculate intermediate values without requesting new forecast data.
 
 
@@ -123,6 +129,6 @@ Forecasts are delivered up to 3 days for paid personal plans.
 | remaining-channel       | Number:Energy | Forecast of today's remaining production |
 | today-channel           | Number:Energy | Today's forecast in total                |
 | tomorrow-channel        | Number:Energy | Tomorrows forecast in total             |
-| day`X`-channel          | Number:Energy | Day `X` forecast in total               |
+| day*X*-channel          | Number:Energy | Day *X* forecast in total               |
 | raw                     | String        | Plain JSON response without conversions |
 
