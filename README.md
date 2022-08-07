@@ -14,7 +14,7 @@ Supported Services
 
 ## Supported Things
 
-Each service needs one `site` for your location and 1+ Photovoltaic `plane`.  
+Each service needs one `xx-site` for your location and at least one photovoltaic `xx-plane`.  
 
 | Name                              | Thing Type ID |
 |-----------------------------------|---------------|
@@ -27,7 +27,7 @@ Each service needs one `site` for your location and 1+ Photovoltaic `plane`.
 
 [Solcast service](https://solcast.com/) requires a personal registration with an email address.
 A free version for your personal home PV system is available in [Hobbyist Plan](https://toolkit.solcast.com.au/register/hobbyist)
-You need to configure your Home Photovoltaic System within the web interface.
+You need to configure your home photovoltaic system within the web interface.
 After configuration the necessary information is available.
 
 ### Solcast Tuning
@@ -42,7 +42,7 @@ As described in [Solcast Rooftop Measurement](https://legacy-docs.solcast.com.au
 - item is delivering good values and they are stored in persistence
 - time settings in openHAB are correct in order to so measurements are matching to the measure time frame
 
-After the measurement is sent the `raw-tuning` is reporting the result.
+After the measurement is sent the `raw-tuning` channel is reporting the result.
 
 ### Solcast Bridge Configuration
 
@@ -74,7 +74,7 @@ Note: `channelRefreshInterval` from [Bridge Configuration](#solcast-bridge-confi
 It's an optional setting and the [measure is sent to Solcast API in order to tune the forecast](https://legacy-docs.solcast.com.au/#measurements-rooftop-site) in the future.
 If you don't want to sent measures to Solcast leave this configuration item empty.
 
-`powerUnit' is set to `auto-detect`. 
+`powerUnit` is set to `auto-detect`. 
 In case the `powerItem` is delivering a valid `QuantityType<Power>` state this setting is fine.
 If the item delivers a raw number without unit please select `powerUnit` accordingly if item state is Watt or Kilowatt unit. 
 
@@ -93,13 +93,14 @@ Day*X* channels are referring to forecasts plus *X* days: 1 = tomorrow, 2 = day 
 
 | Channel                 | Type          | Description                              | Advanced |
 |-------------------------|---------------|------------------------------------------|----------|
-| actual-channel          | Number:Energy | Today's forecast till now                | no       |
-| remaining-channel       | Number:Energy | Forecast of today's remaining production | no       |
-| today-channel           | Number:Energy | Today's forecast in total                | no       |
-| day*X*-channel          | Number:Energy | Day *X* forecast in total                | no       |
-| day*X*-low-channel      | Number:Energy | Day *X* pessimistic forecast             | no       |
-| day*X*-high-channel     | Number:Energy | Day *X* optimistic forecast              | no       |
-| raw                     | String        | Plain JSON response without conversions  | no       |
+| actual                  | Number:Energy | Today's forecast till now                | no       |
+| actual-power            | Number:Power  | Predicted power in this moment           | no       |
+| remaining               | Number:Energy | Forecast of today's remaining production | no       |
+| today                   | Number:Energy | Today's forecast in total                | no       |
+| day*X*                  | Number:Energy | Day *X* forecast in total                | no       |
+| day*X*-low              | Number:Energy | Day *X* pessimistic forecast             | no       |
+| day*X*-high             | Number:Energy | Day *X* optimistic forecast              | no       |
+| raw                     | String        | Plain JSON response without conversions  | yes      |
 | raw-tuning              | String        | JSON response from tuning call           | yes      |
 
 ## ForecastSolar Configuration
@@ -144,13 +145,71 @@ Forecasts are delivered up to 3 days for paid personal plans.
 
 Day*X* channels are referring to forecasts plus *X* days: 1 = tomorrow, 2 = day after tomorrow, ...
 
-| Channel                 | Type          | Description                              |
-|-------------------------|---------------|------------------------------------------|
-| actual-channel          | Number:Energy | Today's forecast till now                |
-| remaining-channel       | Number:Energy | Forecast of today's remaining production |
-| today-channel           | Number:Energy | Today's forecast in total                |
-| day*X*-channel          | Number:Energy | Day *X* forecast in total                |
-| raw                     | String        | Plain JSON response without conversions  |
+| Channel                 | Type          | Description                              | Advanced |
+|-------------------------|---------------|------------------------------------------|----------|
+| actual                  | Number:Energy | Today's forecast till now                | no       |
+| actual-power            | Number:Power  | Predicted power in this moment           | no       |
+| remaining               | Number:Energy | Forecast of today's remaining production | no       |
+| today                   | Number:Energy | Today's forecast in total                | no       |
+| day*X*                  | Number:Energy | Day *X* forecast in total                | no       |
+| raw                     | String        | Plain JSON response without conversions  | yes      |
+
+
+## Thing Actions
+
+All things `sc-site`, `sc-plane`, `fs-site` and `fs-plane` are providing the same Actions.
+While channels are providing actual forecast data and daily forecasts in future Actions provides an interface to execute more sophisticated handling in rules.
+You can execute this for each `xx-plane` for specific plane values or `xx-site` to sum up all attached planes.
+
+### Get Forecast Begin
+
+````java
+LocalDateTime getForecastBegin()
+````
+
+Returns `LocalDateTime` of the earliest possible forecast data available.
+It's located in the past, e.g. Solcast provides data from the last 7 days.
+`LocalDateTime.MIN` is returned in case of no forecast data is available.
+
+### Get Forecast End
+
+````java
+LocalDateTime getForecastEnd()
+````
+
+Returns `LocalDateTime` of the latest possible forecast data available.
+`LocalDateTime.MAX` is returned in case of no forecast data is available.
+
+### Get Power
+
+````java
+State getPower(LocalDateTime dateTime)
+````
+
+Returns `QuantityType<Power>` at the given `dateTime`.
+Respect `getForecastBegin` and `getForecastEnd` to get a valid value.
+Check for `UndefType.UNDEF` in case of errors.
+
+### Get Day
+
+````java
+State getDay(LocalDate localDate)
+````
+
+Returns `QuantityType<Energy>` at the given `localDate`.
+Respect `getForecastBegin` and `getForecastEnd` to avoid ambigouos values.
+Check for `UndefType.UNDEF` in case of errors.
+
+### Get Energy
+
+````java
+State getEnergy(LocalDateTime begin, LocalDateTime end) 
+````
+
+Returns `QuantityType<Energy>` between the timestamps `begin` and `end`.
+Respect `getForecastBegin` and `getForecastEnd` to avoid ambigouos values.
+Check for `UndefType.UNDEF` in case of errors.
+
 
 ## Example
 
@@ -169,19 +228,68 @@ Bridge solarforecast:fs-site:homeSite   "ForecastSolar Home" [ location="54.321,
 ### Items file
 
 ````
-Number:Energy           ForecastSolarHome_Actual         "Actual Forecast Today [%3.f %unit%]"             {channel="solarforecast:fs-site:homeSite:actual" }                                                                           
-Number:Energy           ForecastSolarHome_Remaining      "Remaining Forecast Today [%3.f %unit%]"          {channel="solarforecast:fs-site:homeSite:remaining" }                                                                           
-Number:Energy           ForecastSolarHome_Today          "Today Total Forecast [%3.f %unit%]"              {channel="solarforecast:fs-site:homeSite:today" }                                                                           
-Number:Energy           ForecastSolarHome_Day1           "Tomorrow Total Forecast [%3.f %unit%]"           {channel="solarforecast:fs-site:homeSite:day1" }                                                                           
+Number:Energy           ForecastSolarHome_Actual           "Actual Forecast Today [%3.f %unit%]"             {channel="solarforecast:fs-site:homeSite:actual" }                                                                           
+Number:Power            ForecastSolarHome_Actual_Power     "Actual Power Forecast [%3.f %unit%]"             {channel="solarforecast:fs-site:homeSite:actual-power" }                                                                           
+Number:Energy           ForecastSolarHome_Remaining        "Remaining Forecast Today [%3.f %unit%]"          {channel="solarforecast:fs-site:homeSite:remaining" }                                                                           
+Number:Energy           ForecastSolarHome_Today            "Today Total Forecast [%3.f %unit%]"              {channel="solarforecast:fs-site:homeSite:today" }                                                                           
+Number:Energy           ForecastSolarHome_Day1             "Tomorrow Total Forecast [%3.f %unit%]"           {channel="solarforecast:fs-site:homeSite:day1" }                                                                           
 
-Number:Energy           ForecastSolarHome_Actual_NE      "Actual NE Forecast Today [%3.f %unit%]"          {channel="solarforecast:fs-plane:homeSite:homeNorthEast:actual" }                                                                           
-Number:Energy           ForecastSolarHome_Remaining_NE   "Remaining NE Forecast Today [%3.f %unit%]"       {channel="solarforecast:fs-plane:homeSite:homeNorthEast:remaining" }                                                                           
-Number:Energy           ForecastSolarHome_Today_NE       "Total NE Forecast Today [%3.f %unit%]"           {channel="solarforecast:fs-plane:homeSite:homeNorthEast:today" }                                                                           
-Number:Energy           ForecastSolarHome_Day_NE         "Tomorrow NE Forecast [%3.f %unit%]"              {channel="solarforecast:fs-plane:homeSite:homeNorthEast:day1" }                                                                           
+Number:Energy           ForecastSolarHome_Actual_NE        "Actual NE Forecast Today [%3.f %unit%]"          {channel="solarforecast:fs-plane:homeSite:homeNorthEast:actual" }                                                                           
+Number:Power            ForecastSolarHome_Actual_Power_NE  "Actual NE Power Forecast [%3.f %unit%]"          {channel="solarforecast:fs-plane:homeSite:homeNorthEast:actual-power" }                                                                           
+Number:Energy           ForecastSolarHome_Remaining_NE     "Remaining NE Forecast Today [%3.f %unit%]"       {channel="solarforecast:fs-plane:homeSite:homeNorthEast:remaining" }                                                                           
+Number:Energy           ForecastSolarHome_Today_NE         "Total NE Forecast Today [%3.f %unit%]"           {channel="solarforecast:fs-plane:homeSite:homeNorthEast:today" }                                                                           
+Number:Energy           ForecastSolarHome_Day_NE           "Tomorrow NE Forecast [%3.f %unit%]"              {channel="solarforecast:fs-plane:homeSite:homeNorthEast:day1" }                                                                           
 
-Number:Energy           ForecastSolarHome_Actual_SW      "Actual SW Forecast Today [%3.f %unit%]"          {channel="solarforecast:fs-plane:homeSite:homeSouthWest:actual" }                                                                           
-Number:Energy           ForecastSolarHome_Remaining_SW   "Remaining SW Forecast Today [%3.f %unit%]"       {channel="solarforecast:fs-plane:homeSite:homeSouthWest:remaining" }                                                                           
-Number:Energy           ForecastSolarHome_Today_SW       "Total SW Forecast Today [%3.f %unit%]"           {channel="solarforecast:fs-plane:homeSite:homeSouthWest:today" }                                                                           
-Number:Energy           ForecastSolarHome_Day_SW         "Tomorrow SW Forecast [%3.f %unit%]"              {channel="solarforecast:fs-plane:homeSite:homeSouthWest:day1" }                                                                           
+Number:Energy           ForecastSolarHome_Actual_SW        "Actual SW Forecast Today [%3.f %unit%]"          {channel="solarforecast:fs-plane:homeSite:homeSouthWest:actual" }                                                                           
+Number:Power            ForecastSolarHome_Actual_Power_SW  "Actual SW Power Forecast [%3.f %unit%]"          {channel="solarforecast:fs-plane:homeSite:homeSouthWest:actual-power" }                                                                           
+Number:Energy           ForecastSolarHome_Remaining_SW     "Remaining SW Forecast Today [%3.f %unit%]"       {channel="solarforecast:fs-plane:homeSite:homeSouthWest:remaining" }                                                                           
+Number:Energy           ForecastSolarHome_Today_SW         "Total SW Forecast Today [%3.f %unit%]"           {channel="solarforecast:fs-plane:homeSite:homeSouthWest:today" }                                                                           
+Number:Energy           ForecastSolarHome_Day_SW           "Tomorrow SW Forecast [%3.f %unit%]"              {channel="solarforecast:fs-plane:homeSite:homeSouthWest:day1" }                                                                           
 ````
 
+### Actions rule
+
+````
+rule "Forecast Solar Actions"
+    when
+        Time cron "0 0 23 * * ?" // trigger whatever you like
+    then 
+        // get Actions for specific fs-site
+        val solarforecastActions = getActions("solarforecast","solarforecast:fs-site:homeSite")
+ 
+        // get earliest and latest forecast dates
+        val beginDT = solarforecastActions.getForecastBegin
+        val endDT = solarforecastActions.getForecastEnd
+        logInfo("SF Tests","Begin: "+ beginDT+" End: "+endDT)
+ 
+        // get forecast for tomorrow    
+        val fcTomorrowState = solarforecastActions.getDay(LocalDate.now.plusDays(1))
+        logInfo("SF Tests","Forecast tomorrow state: "+ fcTomorrowState.toString)
+        val fcToTomorrowDouble = (fcTomorrowState as Number).doubleValue
+        logInfo("SF Tests","Forecast tomorrow value: "+ fcToTomorrowDouble)
+        
+        // get power forecast in one hour
+        val hourPlusOnePowerState = solarforecastActions.getPower(LocalDateTime.now.plusHours(1))
+        logInfo("SF Tests","Hour+1 power state: "+ hourPlusOnePowerState.toString)
+        val hourPlusOnePowerValue = (hourPlusOnePowerState as Number).doubleValue
+        logInfo("SF Tests","Hour+1 power value: "+ hourPlusOnePowerValue)
+        
+        // get total energy forecast from now till 2 days ahead
+        val twoDaysForecastFromNowState = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(2))
+        logInfo("SF Tests","Forecast 2 days state: "+ twoDaysForecastFromNowState.toString)
+        val twoDaysForecastFromNowValue = (twoDaysForecastFromNowState as Number).doubleValue
+        logInfo("SF Tests","Forecast 2 days value: "+ twoDaysForecastFromNowValue)
+end
+````
+
+shall produce following output
+
+````
+2022-08-07 18:02:19.874 [INFO ] [g.openhab.core.model.script.SF Tests] - Begin: 2022-07-31T18:30 End: 2022-08-14T18:00
+2022-08-07 18:02:19.878 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast tomorrow state: 55.999 kWh
+2022-08-07 18:02:19.880 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast tomorrow value: 55.999
+2022-08-07 18:02:19.884 [INFO ] [g.openhab.core.model.script.SF Tests] - Hour+1 power state: 2.497 kW
+2022-08-07 18:02:19.886 [INFO ] [g.openhab.core.model.script.SF Tests] - Hour+1 power value: 2.497
+2022-08-07 18:02:19.891 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days state: 112.483 kWh
+2022-08-07 18:02:19.892 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days value: 112.483
+````
