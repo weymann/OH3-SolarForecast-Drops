@@ -11,6 +11,14 @@ Supported Services
 - [Forecast.Solar](https://forecast.solar/)
     - Public, Personal and Professional [plans](https://forecast.solar/#accounts) available 
 
+Display Forecast *Power values* and measures of *PV innverter* item
+
+<img src="./doc/SolcastPower.png" width="640" height="400"/>
+
+Display added up values during the day of *Forecast* and *PV inverter* item.
+Yellow line shows *Daily Total Forecast*.
+
+<img src="./doc/SolcastCumulated.png" width="640" height="400"/>
 
 ## Supported Things
 
@@ -29,6 +37,9 @@ Each service needs one `xx-site` for your location and at least one photovoltaic
 A free version for your personal home PV system is available in [Hobbyist Plan](https://toolkit.solcast.com.au/register/hobbyist)
 You need to configure your home photovoltaic system within the web interface.
 After configuration the necessary information is available.
+
+In order to receive proper timestamps double check your time zone in *openHAB - Settings - Regional Settings*.
+Correct time zone is necessary to show correct forecast times in UI. 
 
 ### Solcast Tuning
 
@@ -161,10 +172,18 @@ All things `sc-site`, `sc-plane`, `fs-site` and `fs-plane` are providing the sam
 While channels are providing actual forecast data and daily forecasts in future Actions provides an interface to execute more sophisticated handling in rules.
 You can execute this for each `xx-plane` for specific plane values or `xx-site` to sum up all attached planes.
 
+Input for queries are `LocalDateTime` and `LocalDate` objects. 
+Double check your time zone in *openHAB - Settings - Regional Settings* which is crucial for calculation.
+
 ### Get Forecast Begin
 
 ````java
-LocalDateTime getForecastBegin()
+    /**
+     * Get the first date and time of forecast data
+     *
+     * @return your localized date time
+     */
+    public LocalDateTime getForecastBegin();
 ````
 
 Returns `LocalDateTime` of the earliest possible forecast data available.
@@ -174,7 +193,12 @@ It's located in the past, e.g. Solcast provides data from the last 7 days.
 ### Get Forecast End
 
 ````java
-LocalDateTime getForecastEnd()
+    /**
+     * Get the last date and time of forecast data
+     *
+     * @return your localized date time
+     */
+    public LocalDateTime getForecastEnd();
 ````
 
 Returns `LocalDateTime` of the latest possible forecast data available.
@@ -183,33 +207,66 @@ Returns `LocalDateTime` of the latest possible forecast data available.
 ### Get Power
 
 ````java
-State getPower(LocalDateTime dateTime)
+    /**
+     * Returns electric power at one specific point of time
+     *
+     * @param localDateTime
+     * @param args possible arguments from this interface
+     * @return QuantityType<Power> in kW
+     */
+    public State getPower(LocalDateTime localDateTime, String... args);
 ````
 
-Returns `QuantityType<Power>` at the given `dateTime`.
+Returns `QuantityType<Power>` at the given `localDateTime`.
 Respect `getForecastBegin` and `getForecastEnd` to get a valid value.
 Check for `UndefType.UNDEF` in case of errors.
+
+Solcast things are supporting arguments.
+Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario.
+For these scenarios `localDateTime` needs to be located between `now` and `getForecastEnd`.
 
 ### Get Day
 
 ````java
-State getDay(LocalDate localDate)
+    /**
+     * Returns electric energy production for one day
+     *
+     * @param localDate
+     * @param args possible arguments from this interface
+     * @return QuantityType<Energy> in kW/h
+     */
+    public State getDay(LocalDate localDate, String... args);
 ````
 
 Returns `QuantityType<Energy>` at the given `localDate`.
 Respect `getForecastBegin` and `getForecastEnd` to avoid ambigouos values.
 Check for `UndefType.UNDEF` in case of errors.
 
+Solcast things are supporting arguments.
+Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario.
+For these scenarios `localDate` needs to be between *today* and `getForecastEnd`.
+
 ### Get Energy
 
 ````java
-State getEnergy(LocalDateTime begin, LocalDateTime end) 
+    /**
+     * Returns electric energy between two timestamps
+     *
+     * @param localDateTimeBegin
+     * @param localDateTimeEnd
+     * @param args possible arguments from this interface
+     * @return QuantityType<Energy> in kW/h
+     */
+    public State getEnergy(LocalDateTime localDateTimeBegin, LocalDateTime localDateTimeEnd, String... args);
 ````
 
-Returns `QuantityType<Energy>` between the timestamps `begin` and `end`.
+Returns `QuantityType<Energy>` between the timestamps `localDateTimeBegin` and `localDateTimeEnd`.
 Respect `getForecastBegin` and `getForecastEnd` to avoid ambigouos values.
 Check for `UndefType.UNDEF` in case of errors.
 
+Solcast things are supporting arguments.
+Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario.
+For these scenarios `localDateTimeEnd` needs to be located between `now` and `getForecastEnd`.
 
 ## Example
 
@@ -292,4 +349,31 @@ shall produce following output
 2022-08-07 18:02:19.886 [INFO ] [g.openhab.core.model.script.SF Tests] - Hour+1 power value: 2.497
 2022-08-07 18:02:19.891 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days state: 112.483 kWh
 2022-08-07 18:02:19.892 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days value: 112.483
+````
+
+### Actions rule with Arguments
+
+Only Solcast is deliering `optimistic` and `pessimistic` scenario data.
+If arguments are used on ForecastSolar `UNDEF` state is returned
+
+````
+rule "Solcast Actions"
+    when
+        Time cron "0 0 23 * * ?" // trigger whatever you like
+    then 
+        val sixDayForecast = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(6))
+        logInfo("SF Tests","Forecast Estimate  6 days "+ sixDayForecast)
+        val sixDayOptimistic = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(6),"optimistic")
+        logInfo("SF Tests","Forecast Optimist  6 days "+ sixDayOptimistic)
+        val sixDayPessimistic = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(6),"pessimistic")
+        logInfo("SF Tests","Forecast Pessimist 6 days "+ sixDayPessimistic)
+end
+````
+
+shall produce following output
+
+````
+2022-08-10 00:02:16.569 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast Estimate  6 days 309.424 kWh
+2022-08-10 00:02:16.574 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast Optimist  6 days 319.827 kWh
+2022-08-10 00:02:16.578 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast Pessimist 6 days 208.235 kWh
 ````
