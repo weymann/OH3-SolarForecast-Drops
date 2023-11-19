@@ -11,11 +11,11 @@ Supported Services
 - [Forecast.Solar](https://forecast.solar/)
     - Public, Personal and Professional [plans](https://forecast.solar/#accounts) available 
 
-Display Forecast *Power values* and measures of *PV innverter* item
+Display Power values of Forecast and PV Inverter items
 
 <img src="./doc/SolcastPower.png" width="640" height="400"/>
 
-Display added up values during the day of *Forecast* and *PV inverter* item.
+Display Energy values of Forecast and PV inverter items
 Yellow line shows *Daily Total Forecast*.
 
 <img src="./doc/SolcastCumulated.png" width="640" height="400"/>
@@ -33,37 +33,40 @@ Each service needs one `xx-site` for your location and at least one photovoltaic
 
 ## Solcast Configuration
 
-[Solcast service](https://solcast.com/) requires a personal registration with an email address.
+[Solcast service](https://solcast.com/) requires a personal registration with an e-mail address.
 A free version for your personal home PV system is available in [Hobbyist Plan](https://toolkit.solcast.com.au/register/hobbyist)
 You need to configure your home photovoltaic system within the web interface.
-After configuration the necessary information is available.
+The `resourceId` for each PV plane is provided afterwards.
 
 In order to receive proper timestamps double check your time zone in *openHAB - Settings - Regional Settings*.
 Correct time zone is necessary to show correct forecast times in UI. 
 
 ### Solcast Tuning
 
-You've the opportunity to [send your own measurements back to Solcast API](https://legacy-docs.solcast.com.au/#measurements-rooftop-site).
+You have the opportunity to [send your own measurements back to Solcast API](https://legacy-docs.solcast.com.au/#measurements-rooftop-site).
 This data is used internally to improve the forecast for your specific site.
 Configuration and channels can be set after checking the *Show advanced* checkbox.
 You need an item which reports the electric power for the specific rooftop. 
-If this item isn't set no measures will be sent.
+If item isn't set, no measures will be sent.
 As described in [Solcast Rooftop Measurement](https://legacy-docs.solcast.com.au/#measurements-rooftop-site) check in beforehand if your measures are *sane*.
 
-- item is delivering good values and they are stored in persistence
-- time settings in openHAB are correct in order to so measurements are matching to the measure time frame
+- item is delivering correct values and they are stored in persistence
+- time zone setting in openHAB is correct to deliver correct timestamp
 
-After the measurement is sent the `raw-tuning` channel is reporting the result.
+After measurement is sent the `raw-tuning` channel is reporting the result.
 
 ### Solcast Bridge Configuration
 
-| Name                   | Type    | Description                           | Default | Required |
-|------------------------|---------|---------------------------------------|---------|----------|
-| apiKey                 | text    | API Key                               | N/A     | yes      |
-| channelRefreshInterval | integer | Channel Refresh Interval in minutes   | 1       | yes      |
+| Name                   | Type    | Description                           | Default     | Required | Advanced |
+|------------------------|---------|---------------------------------------|-------------|----------|----------|
+| apiKey                 | text    | API Key                               | N/A         | yes      | no       |
+| channelRefreshInterval | integer | Channel Refresh Interval in minutes   | 1           | yes      | no       |
+| timeZone               | text    | Time Zone of forecast location        | auto-detect | no       | yes      |
 
 `apiKey` can be obtained in your [Account Settings](https://toolkit.solcast.com.au/account)
 
+`timeZone` is set to `auto-detect` to evaluate Regional Settings of your openHAB installation. 
+See [DateTime](#date-time) section for more information.
 
 ### Solcast Plane Configuration
 
@@ -77,21 +80,21 @@ After the measurement is sent the `raw-tuning` channel is reporting the result.
 `resourceId` for each plane can be obtained in your [Rooftop Sites](https://toolkit.solcast.com.au/rooftop-sites)
 
 `refreshInterval` of forecast data needs to respect the throttling of the Solcast service. 
-If you've 25 free calls per day, each plane needs 2 calls per update a refresh interval of 120 minutes will result in 24 calls per day.
+If you have 25 free calls per day, each plane needs 2 calls per update a refresh interval of 120 minutes will result in 24 calls per day.
 
 Note: `channelRefreshInterval` from [Bridge Configuration](#solcast-bridge-configuration) will calculate intermediate values without requesting new forecast data.
 
 `powerItem` shall reflect the power for this specific rooftop. 
 It's an optional setting and the [measure is sent to Solcast API in order to tune the forecast](https://legacy-docs.solcast.com.au/#measurements-rooftop-site) in the future.
-If you don't want to sent measures to Solcast leave this configuration item empty.
+If you don't want to send measures to Solcast, leave this configuration item empty.
 
 `powerUnit` is set to `auto-detect`. 
-In case the `powerItem` is delivering a valid `QuantityType<Power>` state this setting is fine.
-If the item delivers a raw number without unit please select `powerUnit` accordingly if item state is Watt or Kilowatt unit. 
+In case the `powerItem` is delivering a valid `QuantityType<Power>` state, this setting is fine.
+If the item delivers a raw number without unit please select `powerUnit` accordingly if item state, is Watt or Kilowatt unit. 
 
 ## Solcast Channels
 
-Each `sc-plane` reports it's own values including a `raw` channel holding json content.
+Each `sc-plane` reports its own values including a `raw` channel holding JSON content.
 The `sc-site` bridge sums up all attached `sc-plane` values and provides the total forecast for your home location.  
 
 Channels are covering today's actual data with current, remaining and today's total prediction.
@@ -102,22 +105,22 @@ Forecasts are delivered up to 6 days in advance including
 
 Day*X* channels are referring to forecasts plus *X* days: 1 = tomorrow, 2 = day after tomorrow, ...
 
-| Channel                 | Type          | Description                              | Advanced |
-|-------------------------|---------------|------------------------------------------|----------|
-| actual                  | Number:Energy | Today's forecast till now                | no       |
-| actual-power            | Number:Power  | Predicted power in this moment           | no       |
-| remaining               | Number:Energy | Forecast of today's remaining production | no       |
-| today                   | Number:Energy | Today's forecast in total                | no       |
-| day*X*                  | Number:Energy | Day *X* forecast in total                | no       |
-| day*X*-low              | Number:Energy | Day *X* pessimistic forecast             | no       |
-| day*X*-high             | Number:Energy | Day *X* optimistic forecast              | no       |
-| raw                     | String        | Plain JSON response without conversions  | yes      |
-| raw-tuning              | String        | JSON response from tuning call           | yes      |
+| Channel                 | Type          | Unit | Description                              | Advanced |
+|-------------------------|---------------|------|------------------------------------------|----------|
+| actual                  | Number:Energy | kWh  | Today's forecast till now                | no       |
+| actual-power            | Number:Power  | W    | Predicted power in this moment           | no       |
+| remaining               | Number:Energy | kWh  | Forecast of today's remaining production | no       |
+| today                   | Number:Energy | kWh  | Today's forecast in total                | no       |
+| day*X*                  | Number:Energy | kWh  | Day *X* forecast in total                | no       |
+| day*X*-low              | Number:Energy | kWh  | Day *X* pessimistic forecast             | no       |
+| day*X*-high             | Number:Energy | kWh  | Day *X* optimistic forecast              | no       |
+| raw                     | String        | -    | Plain JSON response without conversions  | yes      |
+| raw-tuning              | String        | -    | JSON response from tuning call           | yes      |
 
 ## ForecastSolar Configuration
 
 [ForecastSolar service](https://forecast.solar/) provides a [public free](https://forecast.solar/#accounts) plan.
-You can try it without any registration or other pre-conditions.
+You can try it without any registration or other preconditions.
 
 ### ForecastSolar Bridge Configuration
 
@@ -167,125 +170,89 @@ So you need to know what you're doing.
 
 ## ForecastSolar Channels
 
-Each `fs-plane` reports it's own values including a `raw` channel holding json content.
+Each `fs-plane` reports it's own values including a `raw` channel holding JSON content.
 The `fs-site` bridge sums up all attached `fs-plane` values and provides the total forecast for your home location.  
 
-Channels are covering todays actual data with current, remaining and today's total prediction.
+Channels are covering today's actual data with current, remaining and total prediction.
 Forecasts are delivered up to 3 days for paid personal plans.
 
 Day*X* channels are referring to forecasts plus *X* days: 1 = tomorrow, 2 = day after tomorrow, ...
 
-| Channel                 | Type          | Description                              | Advanced |
-|-------------------------|---------------|------------------------------------------|----------|
-| actual                  | Number:Energy | Today's forecast till now                | no       |
-| actual-power            | Number:Power  | Predicted power in this moment           | no       |
-| remaining               | Number:Energy | Forecast of today's remaining production | no       |
-| today                   | Number:Energy | Today's forecast in total                | no       |
-| day*X*                  | Number:Energy | Day *X* forecast in total                | no       |
-| raw                     | String        | Plain JSON response without conversions  | yes      |
-
+| Channel                 | Type          | Unit | Description                              | Advanced |
+|-------------------------|---------------|------|------------------------------------------|----------|
+| actual                  | Number:Energy | kWh  | Today's forecast till now                | no       |
+| actual-power            | Number:Power  | W    | Predicted power in this moment           | no       |
+| remaining               | Number:Energy | kWh  | Forecast of today's remaining production | no       |
+| today                   | Number:Energy | kWh  | Today's forecast in total                | no       |
+| day*X*                  | Number:Energy | kWh  | Day *X* forecast in total                | no       |
+| raw                     | String        | -    | Plain JSON response without conversions  | yes      |
 
 ## Thing Actions
 
 All things `sc-site`, `sc-plane`, `fs-site` and `fs-plane` are providing the same Actions.
-While channels are providing actual forecast data and daily forecasts in future Actions provides an interface to execute more sophisticated handling in rules.
+Channels are providing actual forecast data and daily forecasts in future.
+Actions provides an interface to execute more sophisticated handling in rules.
 You can execute this for each `xx-plane` for specific plane values or `xx-site` to sum up all attached planes.
 
-Input for queries are `LocalDateTime` and `LocalDate` objects. 
+See [Date Time](#date-time) section for more information.
 Double check your time zone in *openHAB - Settings - Regional Settings* which is crucial for calculation.
 
-### Get Forecast Begin
+### `getForecastBegin`
 
-````java
-    /**
-     * Get the first date and time of forecast data
-     *
-     * @return your localized date time
-     */
-    public LocalDateTime getForecastBegin();
-````
-
-Returns `LocalDateTime` of the earliest possible forecast data available.
+Returns `Instant` of the earliest possible forecast data available.
 It's located in the past, e.g. Solcast provides data from the last 7 days.
-`LocalDateTime.MIN` is returned in case of no forecast data is available.
+`Instant.MAX` is returned in case of no forecast data is available.
 
-### Get Forecast End
+### `getForecastEnd`
 
-````java
-    /**
-     * Get the last date and time of forecast data
-     *
-     * @return your localized date time
-     */
-    public LocalDateTime getForecastEnd();
-````
+Returns `Instant` of the latest possible forecast data available.
+`Instant.MIN` is returned in case of no forecast data is available.
 
-Returns `LocalDateTime` of the latest possible forecast data available.
-`LocalDateTime.MAX` is returned in case of no forecast data is available.
+### `getPower`
 
-### Get Power
+| Parameter | Type          | Description                                                                                                  |
+|-----------|---------------|--------------------------------------------------------------------------------------------------------------|
+| timestamp | Instant       | Timestamp of power query                                                                                     |
+| mode      | String        | Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario. Only Solcast. |
 
-````java
-    /**
-     * Returns electric power at one specific point of time
-     *
-     * @param localDateTime
-     * @param args possible arguments from this interface
-     * @return QuantityType<Power> in kW
-     */
-    public State getPower(LocalDateTime localDateTime, String... args);
-````
-
-Returns `QuantityType<Power>` at the given `localDateTime`.
+Returns `QuantityType<Power>` at the given `Instant` timestamp.
 Respect `getForecastBegin` and `getForecastEnd` to get a valid value.
 Check for `UndefType.UNDEF` in case of errors.
 
-Solcast things are supporting arguments.
-Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario.
-For these scenarios `localDateTime` needs to be located between `now` and `getForecastEnd`.
+### `getDay`
 
-### Get Day
-
-````java
-    /**
-     * Returns electric energy production for one day
-     *
-     * @param localDate
-     * @param args possible arguments from this interface
-     * @return QuantityType<Energy> in kW/h
-     */
-    public State getDay(LocalDate localDate, String... args);
-````
+| Parameter | Type          | Description                                                                                                  |
+|-----------|---------------|--------------------------------------------------------------------------------------------------------------|
+| date      | LocalDate     | Date of the day                                                                                              |
+| mode      | String        | Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario. Only Solcast. |
 
 Returns `QuantityType<Energy>` at the given `localDate`.
-Respect `getForecastBegin` and `getForecastEnd` to avoid ambigouos values.
+Respect `getForecastBegin` and `getForecastEnd` to avoid ambiguous values.
 Check for `UndefType.UNDEF` in case of errors.
 
-Solcast things are supporting arguments.
-Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario.
-For these scenarios `localDate` needs to be between *today* and `getForecastEnd`.
+### `getEnergy`
 
-### Get Energy
+| Parameter       | Type          | Description                                                                                                  |
+|-----------------|---------------|--------------------------------------------------------------------------------------------------------------|
+| startTimestamp  | Instant       | Start timestamp of energy query                                                                              |
+| endTimestamp    | Instant       | End timestamp of energy query                                                                                |
+| mode            | String        | Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario. Only Solcast. |
 
-````java
-    /**
-     * Returns electric energy between two timestamps
-     *
-     * @param localDateTimeBegin
-     * @param localDateTimeEnd
-     * @param args possible arguments from this interface
-     * @return QuantityType<Energy> in kW/h
-     */
-    public State getEnergy(LocalDateTime localDateTimeBegin, LocalDateTime localDateTimeEnd, String... args);
-````
-
-Returns `QuantityType<Energy>` between the timestamps `localDateTimeBegin` and `localDateTimeEnd`.
-Respect `getForecastBegin` and `getForecastEnd` to avoid ambigouos values.
+Returns `QuantityType<Energy>` between the timestamps `startTimestamp` and `endTimestamp`.
+Respect `getForecastBegin` and `getForecastEnd` to avoid ambiguous values.
 Check for `UndefType.UNDEF` in case of errors.
 
-Solcast things are supporting arguments.
-Choose `optimistic` or `pessimistic` to get values for a positive or negative future scenario.
-For these scenarios `localDateTimeEnd` needs to be located between `now` and `getForecastEnd`.
+## Date Time
+
+Each forecast is bound to a certain location which automatically defines the time zone.
+Most common use case is forecast and your locarion are matching the same time zone.
+Action interface is using `Instant` as timestamps which enables you translating to any time zone.
+This allows you with an easy conversion to query also foreign forecast locations.  
+
+Examples are showing
+
+- how to translate `Instant` to `ZonedDateTime` objects and
+- how to translate `ZonedDateTime` to `Instant` objects
 
 ## Example
 
@@ -294,16 +261,16 @@ Exchange the configuration data in [thing file](#thing-file) and you're ready to
 
 ### Thing file
 
-````
-Bridge solarforecast:fs-site:homeSite   "ForecastSolar Home" [ location="54.321,8.976", channelRefreshInterval="1"] {
+```java
+Bridge solarforecast:fs-site:homeSite   "ForecastSolar Home" [ location="54.321,8.976", channelRefreshInterval=1] {
          Thing fs-plane homeSouthWest   "ForecastSolar Home South-West" [ refreshInterval=10, azimuth=45, declination=35, kwp=5.5]
          Thing fs-plane homeNorthEast   "ForecastSolar Home North-East" [ refreshInterval=10, azimuth=-145, declination=35, kwp=4.425]
 }
-````
+```
 
 ### Items file
 
-````
+```java
 Number:Energy           ForecastSolarHome_Actual           "Actual Forecast Today [%.3f %unit%]"             {channel="solarforecast:fs-site:homeSite:actual" }                                                                           
 Number:Power            ForecastSolarHome_Actual_Power     "Actual Power Forecast [%.3f %unit%]"             {channel="solarforecast:fs-site:homeSite:actual-power" }                                                                           
 Number:Energy           ForecastSolarHome_Remaining        "Remaining Forecast Today [%.3f %unit%]"          {channel="solarforecast:fs-site:homeSite:remaining" }                                                                           
@@ -321,22 +288,25 @@ Number:Power            ForecastSolarHome_Actual_Power_SW  "Actual SW Power Fore
 Number:Energy           ForecastSolarHome_Remaining_SW     "Remaining SW Forecast Today [%.3f %unit%]"       {channel="solarforecast:fs-plane:homeSite:homeSouthWest:remaining" }                                                                           
 Number:Energy           ForecastSolarHome_Today_SW         "Total SW Forecast Today [%.3f %unit%]"           {channel="solarforecast:fs-plane:homeSite:homeSouthWest:today" }                                                                           
 Number:Energy           ForecastSolarHome_Day_SW           "Tomorrow SW Forecast [%.3f %unit%]"              {channel="solarforecast:fs-plane:homeSite:homeSouthWest:day1" }                                                                           
-````
+```
 
 ### Actions rule
 
-````
+```java
+import java.time.temporal.ChronoUnit
+
 rule "Forecast Solar Actions"
     when
         Time cron "0 0 23 * * ?" // trigger whatever you like
     then 
         // get Actions for specific fs-site
         val solarforecastActions = getActions("solarforecast","solarforecast:fs-site:homeSite")
- 
+        val timeZone = "Europe/Berlin"
+
         // get earliest and latest forecast dates
         val beginDT = solarforecastActions.getForecastBegin
         val endDT = solarforecastActions.getForecastEnd
-        logInfo("SF Tests","Begin: "+ beginDT+" End: "+endDT)
+        logInfo("SF Tests","Begin: "+ beginDT.atZone(ZoneId.of(timeZone))+" End: "+endDT.atZone(ZoneId.of(timeZone)))
  
         // get forecast for tomorrow    
         val fcTomorrowState = solarforecastActions.getDay(LocalDate.now.plusDays(1))
@@ -345,54 +315,61 @@ rule "Forecast Solar Actions"
         logInfo("SF Tests","Forecast tomorrow value: "+ fcToTomorrowDouble)
         
         // get power forecast in one hour
-        val hourPlusOnePowerState = solarforecastActions.getPower(LocalDateTime.now.plusHours(1))
+        val hourPlusOnePowerState = solarforecastActions.getPower(Instant.now.plus(1,ChronoUnit.HOURS))
         logInfo("SF Tests","Hour+1 power state: "+ hourPlusOnePowerState.toString)
         val hourPlusOnePowerValue = (hourPlusOnePowerState as Number).doubleValue
         logInfo("SF Tests","Hour+1 power value: "+ hourPlusOnePowerValue)
         
-        // get total energy forecast from now till 2 days ahead
-        val twoDaysForecastFromNowState = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(2))
+        // get energy forecast at specific time: Nov 18th 2023, 16:00 
+        val startDT = LocalDateTime.of(2023,11,18,16,00).atZone(ZoneId.of(timeZone))
+        val stopDT = startDT.plusDays(2)
+        val twoDaysForecastFromNowState = solarforecastActions.getEnergy(startDT.toInstant, stopDT.toInstant)
         logInfo("SF Tests","Forecast 2 days state: "+ twoDaysForecastFromNowState.toString)
         val twoDaysForecastFromNowValue = (twoDaysForecastFromNowState as Number).doubleValue
         logInfo("SF Tests","Forecast 2 days value: "+ twoDaysForecastFromNowValue)
 end
-````
+```
 
 shall produce following output
 
-````
-2022-08-07 18:02:19.874 [INFO ] [g.openhab.core.model.script.SF Tests] - Begin: 2022-07-31T18:30 End: 2022-08-14T18:00
-2022-08-07 18:02:19.878 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast tomorrow state: 55.999 kWh
-2022-08-07 18:02:19.880 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast tomorrow value: 55.999
-2022-08-07 18:02:19.884 [INFO ] [g.openhab.core.model.script.SF Tests] - Hour+1 power state: 2.497 kW
-2022-08-07 18:02:19.886 [INFO ] [g.openhab.core.model.script.SF Tests] - Hour+1 power value: 2.497
-2022-08-07 18:02:19.891 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days state: 112.483 kWh
-2022-08-07 18:02:19.892 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days value: 112.483
-````
+```
+2023-11-18 22:00:59.250 [INFO ] [g.openhab.core.model.script.SF Tests] - Begin: 2023-11-18T07:34:23+01:00[Europe/Berlin] End: 2023-11-19T16:26:50+01:00[Europe/Berlin]
+2023-11-18 22:00:59.262 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast tomorrow state: 3.861 kWh
+2023-11-18 22:00:59.267 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast tomorrow value: 3.861
+2023-11-18 22:00:59.275 [INFO ] [g.openhab.core.model.script.SF Tests] - Hour+1 power state: 0 kW
+2023-11-18 22:00:59.280 [INFO ] [g.openhab.core.model.script.SF Tests] - Hour+1 power value: 0.0
+2023-11-18 22:00:59.296 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days state: 3.865 kWh
+2023-11-18 22:00:59.300 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast 2 days value: 3.865
+```
 
 ### Actions rule with Arguments
 
-Only Solcast is deliering `optimistic` and `pessimistic` scenario data.
+Only Solcast is delivering `optimistic` and `pessimistic` scenario data.
 If arguments are used on ForecastSolar `UNDEF` state is returned
 
-````
-rule "Solcast Actions"
+```java
+import java.time.temporal.ChronoUnit
+
+rrule "Solcast Actions"
     when
         Time cron "0 0 23 * * ?" // trigger whatever you like
     then 
-        val sixDayForecast = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(6))
+        val solarforecastActions = getActions("solarforecast","solarforecast:sc-site:homeSite")
+        val startTimestamp = Instant.now
+        val endTimestamp = Instant.now.plus(6, ChronoUnit.DAYS)
+        val sixDayForecast = solarforecastActions.getEnergy(startTimestamp,endTimestamp)
         logInfo("SF Tests","Forecast Estimate  6 days "+ sixDayForecast)
-        val sixDayOptimistic = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(6),"optimistic")
+        val sixDayOptimistic = solarforecastActions.getEnergy(startTimestamp,endTimestamp, "optimistic")
         logInfo("SF Tests","Forecast Optimist  6 days "+ sixDayOptimistic)
-        val sixDayPessimistic = solarforecastActions.getEnergy(LocalDateTime.now,LocalDateTime.now.plusDays(6),"pessimistic")
+        val sixDayPessimistic = solarforecastActions.getEnergy(startTimestamp,endTimestamp, "pessimistic")
         logInfo("SF Tests","Forecast Pessimist 6 days "+ sixDayPessimistic)
 end
-````
+```
 
 shall produce following output
 
-````
+```
 2022-08-10 00:02:16.569 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast Estimate  6 days 309.424 kWh
 2022-08-10 00:02:16.574 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast Optimist  6 days 319.827 kWh
 2022-08-10 00:02:16.578 [INFO ] [g.openhab.core.model.script.SF Tests] - Forecast Pessimist 6 days 208.235 kWh
-````
+```
