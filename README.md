@@ -24,12 +24,16 @@ Yellow line shows *Daily Total Forecast*.
 
 Each service needs one `xx-site` for your location and at least one photovoltaic `xx-plane`.
 
-| Name                              | Thing Type ID |
-|-----------------------------------|---------------|
-| Solcast service site definition   | sc-site       |
-| Solcast PV Plane                  | sc-plane      |
-| Forecast Solar site location      | fs-site       |
-| Forecast Solar PV Plane           | fs-plane      |
+| Thing Type ID         | Label                             | Subscription  |
+|-----------------------|-----------------------------------|---------------|
+| sc-site               | Solcast service site definition   | yes (free)    |
+| sc-plane              | Solcast PV Plane                  | yes (free)    |
+| fs-site               | Forecast Solar Site               | no            |
+| fs-plane              | Forecast Solar Plane              | no            |
+| adjustable-fs-site    | Adjustable Forecast Solar Site    | yes (paid)    |
+| adjustable-fs-plane   | Adjustable Forecast Solar Plane   | yes (paid)    |
+| smart-fs-site         | Smart Forecast Solar Site         | no            |
+| smart-fs-plane        | Smart Forecast Solar Plane        | no            |
 
 ## Solcast Configuration
 
@@ -139,14 +143,22 @@ You can try it without any registration or other preconditions.
 | Name                   | Type    | Description                           | Default      | Required |
 |------------------------|---------|---------------------------------------|--------------|----------|
 | location               | text    | Location of Photovoltaic system.      | empty        | no       |
-| apiKey                 | text    | API Key                               | N/A          | no       |
+| inverterKwp            | decimal | Inverter Kilowatt Peak                | N/A          | no       |
+| apiKey                 | text    | API Key                               | N/A          | no / yes |
 
 `location` defines latitude, longitude values of your PV system.
 In case of empty the location configured in openHAB is obtained.
 
+`inverterKwp` defines the maximum possible kilo watt capability of your inverter.
+Used if your installed plane kWp is greater than inverter kWp.
+
 `apiKey` can be given in case you subscribed to a paid plan.
+Not needed for `fs-site` and `smart-fs-site`. 
+Required for `adjustable-fs-site`.
 
 ### ForecastSolar Plane Configuration
+
+Following parameters are needed for each `fs-plane`. 
 
 | Name            | Type    | Description                                                                  | Default | Required | Advanced |
 |-----------------|---------|------------------------------------------------------------------------------|---------|----------|----------|
@@ -154,9 +166,6 @@ In case of empty the location configured in openHAB is obtained.
 | declination     | integer | Plane Declination: 0 for horizontal till 90 for vertical declination         | N/A     | yes      | false    |
 | azimuth         | integer | Plane Azimuth: -180 = north, -90 = east, 0 = south, 90 = west, 180 = north   | N/A     | yes      | false    |
 | kwp             | decimal | Installed Kilowatt Peak                                                      | N/A     | yes      | false    |
-| dampAM          | decimal | Damping factor of morning hours                                              | 0       | no       | true     |
-| dampPM          | decimal | Damping factor of evening hours                                              | 0       | no       | true     |
-| horizon         | text    | Horizon definition as comma separated integer values                         | N/A     | no       | true     |
 
 `refreshInterval` of forecast data needs to respect the throttling of the ForecastSolar service.
 12 calls per hour allowed from your caller IP address so for 2 planes lowest possible refresh rate is 10 minutes.
@@ -165,6 +174,12 @@ In case of empty the location configured in openHAB is obtained.
 
 Advanced configuration parameters are available to *fine tune* your forecast data.
 Read linked documentation in order to know what you're doing.
+
+| Name            | Type    | Description                                                                  | Default | Required | Advanced |
+|-----------------|---------|------------------------------------------------------------------------------|---------|----------|----------|
+| dampAM          | decimal | Damping factor of morning hours                                              | 0       | no       | true     |
+| dampPM          | decimal | Damping factor of evening hours                                              | 0       | no       | true     |
+| horizon         | text    | Horizon definition as comma separated integer values                         | N/A     | no       | true     |
 
 [Damping factors](https://doc.forecast.solar/doku.php?id=damping) for morning and evening.
 
@@ -177,23 +192,53 @@ But it doesn't fit 100% to the required configuration.
 Currently there's no tool available which is providing the configuration information 1 to 1.
 So you need to know what you're doing.
 
+#### Power Feedback Configuration
+
+You can provide feedback of your power production in order to correct the forecast of the current day.
+This is mandatory for `adjustable-fs-plane` and `smart-fs-plane`.
+
+| Name                  | Type    | Description                                                         | Default |
+|-----------------------|---------|---------------------------------------------------------------------|---------|
+| powerItemName         | text    | Power item from your solar inverter for this plane                  | N/A     |
+| powerItemPersistence  | text    | Persistence service to query power item values                      | N/A     |
+| holdingTime           | integer | Time to wait in minutes from first prediction to adjust forecast    | 120     |
+
+The name `powerItemName` shall be the power item directly corresponding to this plane.
+You can select this in the UI.
+
+The `powerItemPersistence` shall point to the persitence service storing the power item values.
+In UI all installed persistence services are given as options.
+
+Parameter `holdingTime` defines the time between the first forecast prediciton and when corrections shall start.
+The correction shall not start at *early stages*.
+Rationale: If correction starts too early values may differ a lot. 
+E.g. forecast predicts 0.1 kWh but real production is 0.001 kWh results into [massive correction factors](https://doc.forecast.solar/actual).
+
+
 ## ForecastSolar Channels
 
-Each `fs-plane` reports its own values including a `json` channel holding JSON content.
+Each `fs-plane` reports its own values.
 The `fs-site` bridge sums up all attached `fs-plane` values and provides the total forecast for your home location.
 
 Channels are covering today's actual data with current, remaining and total prediction.
 Forecasts are delivered up to 3 days for paid personal plans.
 
-| Channel                 | Type          | Unit | Description                                     | Advanced |
-|-------------------------|---------------|------|-------------------------------------------------|----------|
-| power-estimate          | Number:Power  | W    | Power forecast for next hours/days              | no       |
-| energy-estimate         | Number:Energy | kWh  | Energy forecast for next hours/days             | no       |
-| power-actual            | Number:Power  | W    | Power prediction for this moment                | no       |
-| energy-actual           | Number:Energy | kWh  | Today's forecast till now                       | no       |
-| energy-remain           | Number:Energy | kWh  | Today's remaining forecast till sunset          | no       |
-| energy-today            | Number:Energy | kWh  | Today's forecast in total                       | no       |
-| json                    | String        | -    | Plain JSON response without conversions         | yes      |
+| Channel                 | Type          | Unit | Description                                     |
+|-------------------------|---------------|------|-------------------------------------------------|
+| power-estimate          | Number:Power  | W    | Power forecast for next hours/days              |
+| energy-estimate         | Number:Energy | kWh  | Energy forecast for next hours/days             |
+| power-actual            | Number:Power  | W    | Power prediction for this moment                |
+| energy-actual           | Number:Energy | kWh  | Today's forecast till now                       |
+| energy-remain           | Number:Energy | kWh  | Today's remaining forecast till sunset          |
+| energy-today            | Number:Energy | kWh  | Today's forecast in total                       |
+
+### Correction Channel
+
+In case of `smart-fs-site` and `smart-fs-plane` the correction factor is shown.
+
+| Channel           | Type      | Description                                                                           |
+|-------------------|-----------|---------------------------------------------------------------------------------------|
+| correction-factor | Number    | Factor of forecast correction. Less than one down correction, otherwise up correction.|
 
 ## Thing Actions
 
@@ -347,9 +392,9 @@ Number:Energy    Solcast_Site_Pessimistic_Today               "Today's total ene
 
 // site API call counter 
 Number           Solcast_Site_API_Sucess_Counter              "Site API Counter"                                                       {channel="solarforecast:sc-site:homeSite:update#api-count" [ profile="transform:JSONPATH", function="$.200"]}
-Number           Solcast_Site_API_Throttle_Counter            "Site API Throttle Counter"                                              {channel="solarforecast:sc-site:homeSite:update#api-count" [ profile="transform:JSONPATH", function="$.200"]}
-Number           Solcast_Site_API_Error_Counter               "Site API ErrorCounter"                                                  {channel="solarforecast:sc-site:homeSite:update#api-count" [ profile="transform:JSONPATH", function="$.200"]}
-DateTime         Solcast_Site_API_LastUpdate                  "Site API Last Update"                                                   {channel="solarforecast:sc-site:homeSite:update#lastest-update"}
+Number           Solcast_Site_API_Throttle_Counter            "Site API Throttle Counter"                                              {channel="solarforecast:sc-site:homeSite:update#api-count" [ profile="transform:JSONPATH", function="$.429"]}
+Number           Solcast_Site_API_Error_Counter               "Site API ErrorCounter"                                                  {channel="solarforecast:sc-site:homeSite:update#api-count" [ profile="transform:JSONPATH", function="$.other"]}
+DateTime         Solcast_Site_API_LastUpdate                  "Site API Last Update"                                                   {channel="solarforecast:sc-site:homeSite:update#latest-update"}
 
 // estimation items
 Group            influxdb
@@ -380,9 +425,9 @@ Number:Energy    Solcast_Plane_Pessimistic_Today_SW           "SW Today's pessim
 
 // plane API call counter
 Number           Solcast_Plane_API_Sucess_Counter             "Plane API Counter"                                                      {channel="solarforecast:sc-plane:homeSite:planeSouthWest:update#api-count" [ profile="transform:JSONPATH", function="$.200"]}
-Number           Solcast_Plane_API_Throttle_Counter           "Plane API Throttle Counter"                                             {channel="solarforecast:sc-plane:homeSite:planeSouthWest:update#api-count" [ profile="transform:JSONPATH", function="$.200"]}
-Number           Solcast_Plane_API_Error_Counter              "Plane API ErrorCounter"                                                 {channel="solarforecast:sc-plane:homeSite:planeSouthWest:update#api-count" [ profile="transform:JSONPATH", function="$.200"]}
-DateTime         Solcast_Plane_API_LastUpdate                 "Plane API Last Update"                                                  {channel="solarforecast:sc-plane:homeSite:planeSouthWest:update#lastest-update"}
+Number           Solcast_Plane_API_Throttle_Counter           "Plane API Throttle Counter"                                             {channel="solarforecast:sc-plane:homeSite:planeSouthWest:update#api-count" [ profile="transform:JSONPATH", function="$.429"]}
+Number           Solcast_Plane_API_Error_Counter              "Plane API ErrorCounter"                                                 {channel="solarforecast:sc-plane:homeSite:planeSouthWest:update#api-count" [ profile="transform:JSONPATH", function="$.other"]}
+DateTime         Solcast_Plane_API_LastUpdate                 "Plane API Last Update"                                                  {channel="solarforecast:sc-plane:homeSite:planeSouthWest:update#latest-update"}
 
 // plane estimation items
 Number:Power     Solcast_Plane_Average_Power_Estimate         "Plane Average Power estimations"                          (influxdb)    {channel="solarforecast:sc-plane:homeSite:planeSouthWest:average#power-estimate", stateDescription=" "[ pattern="%.0f %unit%" ], unit="W"}
