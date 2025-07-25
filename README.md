@@ -141,7 +141,7 @@ You can try it without any registration or other preconditions.
 |------------------------|---------|---------------------------------------|--------------|----------|
 | location               | text    | Location of Photovoltaic system.      | empty        | no       |
 | inverterKwp            | decimal | Inverter Kilowatt Peak                | N/A          | no       |
-| apiKey                 | text    | API Key                               | N/A          | no / yes |
+| apiKey                 | text    | API Key                               | N/A          | yes / no |
 
 `location` defines latitude, longitude values of your PV system.
 In case of empty the location configured in openHAB is obtained.
@@ -149,9 +149,8 @@ In case of empty the location configured in openHAB is obtained.
 `inverterKwp` defines the maximum possible kilo watt capability of your inverter.
 Used if your installed plane kWp is greater than inverter kWp.
 
-`apiKey` can be given in case you subscribed to a paid plan.
-Not needed for `fs-site` and `smart-fs-site`. 
-Required for `adjustable-fs-site`.
+`apiKey` is mandatory for `adjustable-fs-site` commercial plan to calculate [forecast adjustment by forecast.solar](https://doc.forecast.solar/actual).
+It's optional for `fs-site` and `smart-fs-site` but can be used for comparison of forecasts.
 
 ### ForecastSolar Plane Configuration
 
@@ -200,16 +199,15 @@ This is mandatory for `adjustable-fs-plane` and `smart-fs-plane`.
 | calculationItemPersistence    | text    | Persistence service to query calculation item values                | N/A     |
 | holdingTime                   | integer | Time to wait in minutes from first prediction to adjust forecast    | 120     |
 
-The name `calculationItemName` shall be the calculation item directly corresponding to this plane.
-
 **Strict requirement** for `calculationItemName` type is `Number:Power`_or_ `Number:Energy`. 
 Values without unit will be rejected.  
+The name `calculationItemName` shall be the calculation item directly corresponding to this plane.
+Check if this item is frequently updated and not e.g. 15 minutes behind because this will have a negative impact on the forecast correction.
 
-
-The `calculationItemPersistence` shall point to the persitence service storing the calculation item values.
+The `calculationItemPersistence` shall point to the persistence service storing the calculation item values.
 All installed persistence services are given as options.
 
-Parameter `holdingTime` defines the time between the first forecast prediciton and when corrections shall start.
+Parameter `holdingTime` defines the time between the first forecast prediction and when corrections shall start.
 The correction shall not start at *early stages*.
 Rationale: If correction starts too early values may differ a lot. 
 E.g. forecast predicts 0.1 kWh but real production is 0.001 kWh results into [massive correction factors](https://doc.forecast.solar/actual).
